@@ -147,7 +147,7 @@ def test(**kwargs):
                 I_stylized = InvNet(csf)   
                 I_stylized = denorm(I_stylized, device)
                 save_image(I_stylized.cpu(), 
-                            os.path.join(opt.out_dir, content_img_name.split('.')[0] + '_fake'))     
+                            os.path.join(opt.out_dir, content_img_name.split('.')[0] + '_fake' + '.png'))     
     else:
         content = Image.open(opt.content)
         style = Image.open(opt.style)
