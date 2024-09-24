@@ -125,7 +125,7 @@ def test(**kwargs):
         
     VggNet = VGGEncoder(opt.relu_level).to(device)
     InvNet = Decoder(opt.relu_level).to(device)
-    InvNet.load_state_dict(torch.load(f'{opt.save_dir}/InvNet_10_epoch.pth'))
+    InvNet.load_state_dict(torch.load(f'{opt.save_dir}/InvNet_3_epoch.pth'))
     VggNet.train()
     InvNet.train()
     
@@ -137,29 +137,22 @@ def test(**kwargs):
     if opt.content_dir and opt.style_dir:
         content_list = os.listdir(opt.content_dir)
         style_list = os.listdir(opt.style_dir)
-        sf_list = []
+    
         with torch.no_grad():
-            # load style images
+            # generate style features, starting from the zero tensor
+            ssf = VggNet(torch.zeros(1, 3, opt.img_size, opt.img_size).to(device))
             for style_img_name in style_list:
                 style = Image.open(os.path.join(opt.style_dir, style_img_name))
                 style = transform(style).unsqueeze(0).to(device)
                 sf = VggNet(style)
-                sf_list.append(sf)
+                ssf = style_swap(ssf, sf, opt.patch_size, 3)
+                
             # process content images one by one
             for content_img_name in content_list:
                 content = Image.open(os.path.join(opt.content_dir, content_img_name))
                 content = transform(content).unsqueeze(0).to(device)
                 cf = VggNet(content)
-                csf = cf
-                # do style swap for each content image with all style images
-                # append original content image for every 5 style images
-                norm_count = 5
-                count = 0
-                for sf in sf_list:
-                    csf = style_swap(csf, sf, opt.patch_size, 3)
-                    count += 1
-                    if (count + 1) % norm_count == 0:
-                        csf = style_swap(cf, csf, opt.patch_size, 3)
+                csf = style_swap(cf, ssf, opt.patch_size, 3)
                 I_stylized = InvNet(csf)   
                 I_stylized = denorm(I_stylized, device)
                 save_image(I_stylized.cpu(), 
