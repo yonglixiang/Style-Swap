@@ -125,7 +125,7 @@ def test(**kwargs):
         
     VggNet = VGGEncoder(opt.relu_level).to(device)
     InvNet = Decoder(opt.relu_level).to(device)
-    InvNet.load_state_dict(torch.load(f'{opt.save_dir}/InvNet_3_epoch.pth'))
+    InvNet.load_state_dict(torch.load(f'{opt.save_dir}/InvNet_10_epoch.pth'))
     VggNet.train()
     InvNet.train()
     
@@ -152,8 +152,14 @@ def test(**kwargs):
                 cf = VggNet(content)
                 csf = cf
                 # do style swap for each content image with all style images
+                # append original content image for every 5 style images
+                norm_count = 5
+                count = 0
                 for sf in sf_list:
                     csf = style_swap(csf, sf, opt.patch_size, 3)
+                    count += 1
+                    if (count + 1) % norm_count == 0:
+                        csf = style_swap(cf, csf, opt.patch_size, 3)
                 I_stylized = InvNet(csf)   
                 I_stylized = denorm(I_stylized, device)
                 save_image(I_stylized.cpu(), 
