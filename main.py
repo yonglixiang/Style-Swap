@@ -18,8 +18,9 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class Config(object):
-    content_dir = "./images/content"   # Path of directory containing content images to be transformed
+    content_dir = None                 # Path of directory containing content images to be transformed
     content = "./images/content"       # Path of directory containing content images to be transformed
+    style_dir = None                   # Path of directory containing style images to be transformed
     style = "./images/style"           # Path of directory containing style images to be transformed
     img_size = 256                     # Reshape the image to have new size
     patch_size = 3                     # Patch size of the style swap
@@ -133,21 +134,30 @@ def test(**kwargs):
         transforms.Normalize(mean=(0.485,0.456,0.406), std=(0.229,0.224,0.225)),
     ])
     
-    if opt.content_dir is not None:
+    if opt.content_dir and opt.style_dir:
         content_list = os.listdir(opt.content_dir)
-        style = Image.open(opt.style)
-        style = transform(style).unsqueeze(0).to(device)
-        for content_img_name in content_list:
-            content = Image.open(os.path.join(opt.content_dir, content_img_name))
-            content = transform(content).unsqueeze(0).to(device)
-            with torch.no_grad():
-                cf = VggNet(content)
+        style_list = os.listdir(opt.style_dir)
+        sf_list = []
+        with torch.no_grad():
+            # load style images
+            for style_img_name in style_list:
+                style = Image.open(os.path.join(opt.style_dir, style_img_name))
+                style = transform(style).unsqueeze(0).to(device)
                 sf = VggNet(style)
-                csf = style_swap(cf, sf, opt.patch_size, 3)
+                sf_list.append(sf)
+            # process content images one by one
+            for content_img_name in content_list:
+                content = Image.open(os.path.join(opt.content_dir, content_img_name))
+                content = transform(content).unsqueeze(0).to(device)
+                cf = VggNet(content)
+                csf = cf
+                # do style swap for each content image with all style images
+                for sf in sf_list:
+                    csf = style_swap(csf, sf, opt.patch_size, 3)
                 I_stylized = InvNet(csf)   
                 I_stylized = denorm(I_stylized, device)
                 save_image(I_stylized.cpu(), 
-                            os.path.join(opt.out_dir, content_img_name.split('.')[0] + '_fake' + '.png'))     
+                           os.path.join(opt.out_dir, content_img_name.split('.')[0] + '_fake' + '.png'))     
     else:
         content = Image.open(opt.content)
         style = Image.open(opt.style)
