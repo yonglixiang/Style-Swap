@@ -18,6 +18,7 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class Config(object):
+    content_dir = "./images/content"   # Path of directory containing content images to be transformed
     content = "./images/content"       # Path of directory containing content images to be transformed
     style = "./images/style"           # Path of directory containing style images to be transformed
     img_size = 256                     # Reshape the image to have new size
@@ -127,26 +128,42 @@ def test(**kwargs):
     VggNet.train()
     InvNet.train()
     
-    content = Image.open(opt.content)
-    style = Image.open(opt.style)
-    
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean=(0.485,0.456,0.406), std=(0.229,0.224,0.225)),
-        ])
+    ])
+    
+    if opt.content_dir is not None:
+        content_list = os.listdir(opt.content_dir)
+        style = Image.open(opt.style)
+        style = transform(style).unsqueeze(0).to(device)
+        for content in content_list:
+            content = Image.open(os.path.join(opt.content_dir, content))
+            content = transform(content).unsqueeze(0).to(device)
+            with torch.no_grad():
+                cf = VggNet(content)
+                sf = VggNet(style)
+                csf = style_swap(cf, sf, opt.patch_size, 3)
+                I_stylized = InvNet(csf)   
+                I_stylized = denorm(I_stylized, device)
+                save_image(I_stylized.cpu(), 
+                            os.path.join(opt.out_dir, (content.split('/')[-1].split('.')[0] + '_stylized_by_' + style.split('/')[-1])))     
+    else:
+        content = Image.open(opt.content)
+        style = Image.open(opt.style)
+        
+        content = transform(content).unsqueeze(0).to(device)
+        style = transform(style).unsqueeze(0).to(device)
 
-    content = transform(content).unsqueeze(0).to(device)
-    style = transform(style).unsqueeze(0).to(device)
+        with torch.no_grad():
+            cf = VggNet(content)
+            sf = VggNet(style)
+            csf = style_swap(cf, sf, opt.patch_size, 3)
+            I_stylized = InvNet(csf)   
+            I_stylized = denorm(I_stylized, device)
 
-    with torch.no_grad():
-        cf = VggNet(content)
-        sf = VggNet(style)
-        csf = style_swap(cf, sf, opt.patch_size, 3)
-        I_stylized = InvNet(csf)   
-        I_stylized = denorm(I_stylized, device)
-
-        save_image(I_stylized.cpu(), 
-                   os.path.join(opt.out_dir, (opt.content.split('/')[-1].split('.')[0] + '_stylized_by_' + opt.style.split('/')[-1])))
+            save_image(I_stylized.cpu(), 
+                    os.path.join(opt.out_dir, (opt.content.split('/')[-1].split('.')[0] + '_stylized_by_' + opt.style.split('/')[-1])))
 
 
 if __name__ == '__main__':
