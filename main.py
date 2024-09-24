@@ -137,8 +137,8 @@ def test(**kwargs):
         content_list = os.listdir(opt.content_dir)
         style = Image.open(opt.style)
         style = transform(style).unsqueeze(0).to(device)
-        for content in content_list:
-            content = Image.open(os.path.join(opt.content_dir, content))
+        for content_img_name in content_list:
+            content = Image.open(os.path.join(opt.content_dir, content_img_name))
             content = transform(content).unsqueeze(0).to(device)
             with torch.no_grad():
                 cf = VggNet(content)
@@ -147,7 +147,7 @@ def test(**kwargs):
                 I_stylized = InvNet(csf)   
                 I_stylized = denorm(I_stylized, device)
                 save_image(I_stylized.cpu(), 
-                            os.path.join(opt.out_dir, (content.split('/')[-1].split('.')[0] + '_stylized_by_' + style.split('/')[-1])))     
+                            os.path.join(opt.out_dir, content_img_name.split('.')[0] + '_fake'))     
     else:
         content = Image.open(opt.content)
         style = Image.open(opt.style)
